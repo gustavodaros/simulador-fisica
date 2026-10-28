@@ -1,8 +1,8 @@
-# Laboratório Virtual de Física
+# Simulador de Física
 
 ## Sobre o projeto
 
-O **Laboratório Virtual de Física** é um projeto acadêmico desenvolvido com o objetivo de criar um ambiente interativo para o estudo de conceitos de Física, com foco em **Cinemática e Dinâmica**.
+O **Simulador de Física** é um projeto acadêmico desenvolvido com o objetivo de criar um ambiente interativo para o estudo de conceitos de Física, com foco em **Cinemática e Dinâmica**.
 
 A proposta é permitir que os usuários explorem fenômenos físicos por meio de simulações, alterando parâmetros e observando seus efeitos. Dessa forma, o projeto busca complementar o aprendizado teórico com experimentação virtual.
 
