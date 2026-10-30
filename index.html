@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Simulador de Física</title>
+        <link rel="stylesheet" href="style.css">
+        <style>[hidden] { display: none !important; }</style>
+    </head>
+    <body>
+        <div id="inicio">
+            <h1>Simulador de Física</h1>
+            <button id="cinematica">Cinemática</button>
+            <button id="dinamica">Dinâmica</button>
+        </div>
+
+        <div id="opcoes-cinematica" hidden>
+            <h1>Cinemática</h1>
+            <button id="mru">MRU</button>
+            <button id="mruv">MRUV</button>
+            <button id="queda_livre">Queda Livre</button>
+            <button class="voltar">Voltar</button>
+        </div>
+
+        <div id="opcoes-dinamica" hidden>
+            <h1>Dinâmica</h1>
+            <button id="forca">Força</button>
+            <button id="atrito">Atrito</button>
+            <button id="trabalho">Trabalho</button>
+            <button class="voltar">Voltar</button>
+        </div>
+
+        <div id="simulacao" hidden>
+            <h1 id="titulo-simulacao"></h1>
+            <p id="formula"></p>
+
+            <div id="parametros"></div>
+
+            <div id="controles">
+                <button id="iniciar">Iniciar</button>
+                <button id="pausar">Pausar</button>
+                <button id="reiniciar">Reiniciar</button>
+                <button id="voltar-simulacao">Voltar</button>
+            </div>
+
+            <canvas id="tela" width="800" height="320"></canvas>
+
+            <div id="resultados"></div>
+        </div>
+
+        <script src="canvas.js"></script>
+        <script src="main.js"></script>
+    </body>
+</html>
