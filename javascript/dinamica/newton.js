@@ -6,7 +6,7 @@ function lerNumeroNewton(valor){
         if (valor === "") return {ausente: true};
         const formato = /^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i;
         if (!formato.test(valor)) return {erro: true};
-        valor = Number(valor.replace("", "."));
+        valor = Number(valor.replace(",", "."));
     }
     if (typeof valor !== "number" || !Number.isFinite(valor)) return {erro: true};
     return {valor: valor};
