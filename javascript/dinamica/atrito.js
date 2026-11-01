@@ -7,7 +7,7 @@ function lerNumeroAtrito(valor){
         if (valor === "") return {ausente: true};
         const formato = /^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i;
         if (!formato.test(valor)) return {erro: true};
-        valor = NUmber(valor.replace(",", "."));
+        valor = Number(valor.replace(",", "."));
     }
     if (typeof valor != "number" || !Number.isFinite(valor)) return {erro: true};
     return {valor: valor};
@@ -20,7 +20,7 @@ function numerosProximosAtrito(primeiro, segundo){
 function resolverAtrito(dados = {}){
     const grandezas = ["m", "F", "mue", "muc", "g", "v0", "x0"];
     const resultado = {
-        movimento: "ATRITO", sucesso: true, situacao: "parcial", regiem: null, fornecidos: {},
+        movimento: "ATRITO", sucesso: true, situacao: "parcial", regime: null, fornecidos: {},
         assumidos: {}, calculados: {}, desconhecidos: [], simulacaoPossivel: false, solucoes: [], mensagens: []
     };
     const valores = {};
@@ -29,7 +29,7 @@ function resolverAtrito(dados = {}){
         resultado.sucesso = false;
         resultado.situacao = "erro";
         resultado.simulacaoPossivel = false;
-        if (!resultado,mensagens.includes(mensagem)) resultado.mensagens.push(mensagem);
+        if (!resultado.mensagens.includes(mensagem)) resultado.mensagens.push(mensagem);
     }
 
     function atualizarDesconhecidos(){
