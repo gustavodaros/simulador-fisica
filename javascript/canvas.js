@@ -6,7 +6,8 @@ function desenharMovimentoCanvas(estado, movimento, limites = {}) {
     const { width: w, height: h } = tela;
     const vertical = movimento === "QUEDA_LIVRE";
     const inicio = limites.inicio || 0, fim = limites.fim || inicio;
-    const solo = Number.isFinite(limites.solo) ? limites.solo : 0;
+    const temSolo = Number.isFinite(limites.solo);
+    const solo = temSolo ? limites.solo : 0;
     c.clearRect(0, 0, w, h);
     c.fillStyle = "#f8fafc";
     c.fillRect(0, 0, w, h);
@@ -17,12 +18,16 @@ function desenharMovimentoCanvas(estado, movimento, limites = {}) {
     let x, y, pos;
     if (vertical) {
         pos = Number.isFinite(estado.y) ? estado.y : solo;
-        const min = Math.min(solo, inicio, fim), faixa = Math.max(Math.max(solo, inicio, fim) - min, 1);
+        const min = temSolo ? Math.min(solo, inicio, fim) : Math.min(inicio, fim);
+        const max = temSolo ? Math.max(solo, inicio, fim) : Math.max(inicio, fim);
+        const faixa = Math.max(max - min, 1);
         const escala = h * 0.65 / faixa, chao = h * 0.85;
-        y = chao - (pos - min) * escala;
+        y = chao - (pos - min) * escala - (temSolo ? 18 : 0);
         x = w / 2;
-        c.moveTo(40, chao - (solo - min) * escala);
-        c.lineTo(w - 40, chao - (solo - min) * escala);
+        if (temSolo) {
+            c.moveTo(40, chao - (solo - min) * escala);
+            c.lineTo(w - 40, chao - (solo - min) * escala);
+        }
     } else {
         pos = Number.isFinite(estado.x) ? estado.x : inicio;
         x = w * 0.16 + (pos - inicio) / (fim - inicio || 1) * w * 0.68;

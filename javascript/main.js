@@ -107,7 +107,7 @@ function iniciar() {
         if (!resultado.sucesso || !resultado.simulacaoPossivel) return;
         tempo = 0;
         const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
-        if (atual === simulacoes.queda_livre && valores.tempoImpacto > 0) duracao = Math.min(duracao, valores.tempoImpacto);
+        if (atual === simulacoes.queda_livre && valores.tempoImpacto >= 0) duracao = Math.min(duracao, valores.tempoImpacto);
         const a = estado(0), b = estado(duracao);
         if (!a.sucesso) return exibir({ mensagens: a.mensagens });
         limites = atual === simulacoes.queda_livre
@@ -115,6 +115,7 @@ function iniciar() {
             : { inicio: a.x, fim: b.sucesso ? b.x : a.x };
         desenhar(0);
     }
+    if (tempo >= duracao) return;
     quadro = requestAnimationFrame(animar);
 }
 
