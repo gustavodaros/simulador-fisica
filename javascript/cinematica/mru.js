@@ -1,11 +1,3 @@
-/*
- * MRU — unidades: posição em m, tempo em s e velocidade em m/s.
- * Uso: resolverMRU({ v: 2, t: 3 });
- *      estadoMRU(resultado, 5);
- * Funções independentes da interface, disponíveis ao carregar este script.
- */
-
-// Somente textos numéricos completos são aceitos; vazio não significa zero.
 function lerNumeroMRU(valor) {
     if (valor === undefined || valor === null) {
         return { ausente: true };
@@ -15,8 +7,6 @@ function lerNumeroMRU(valor) {
         valor = valor.trim();
         if (valor === "") return { ausente: true };
 
-        const formato = /^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i;
-        if (!formato.test(valor)) return { erro: true };
         valor = Number(valor.replace(",", "."));
     }
 
@@ -28,7 +18,7 @@ function lerNumeroMRU(valor) {
 }
 
 function numerosProximosMRU(primeiro, segundo) {
-    // Tolerância absoluta perto de zero e relativa para valores maiores.
+    if (!Number.isFinite(primeiro) || !Number.isFinite(segundo)) return false;
     const escala = Math.max(1, Math.abs(primeiro), Math.abs(segundo));
     return Math.abs(primeiro - segundo) <= 1e-9 * escala;
 }
@@ -50,30 +40,25 @@ function resolverMRU(dados = {}) {
     const valores = {};
 
     function registrarErro(mensagem) {
+        if (!resultado.sucesso) return;
         resultado.sucesso = false;
         resultado.situacao = "erro";
-        resultado.simulacaoPossivel = false;
-        if (!resultado.mensagens.includes(mensagem)) {
-            resultado.mensagens.push(mensagem);
-        }
+        resultado.mensagens.push(mensagem);
     }
 
     function atualizarDesconhecidos() {
-        resultado.desconhecidos = grandezas.filter(function (nome) {
-            return valores[nome] === undefined;
-        });
+        resultado.desconhecidos = [];
+        for (const nome of grandezas) {
+            if (valores[nome] === undefined) {
+                resultado.desconhecidos.push(nome);
+            }
+        }
     }
 
     if (dados === null || typeof dados !== "object" || Array.isArray(dados)) {
         registrarErro("Informe os dados do MRU em um objeto JavaScript.");
         atualizarDesconhecidos();
         return resultado;
-    }
-
-    for (const nome of Object.keys(dados)) {
-        if (!grandezas.includes(nome)) {
-            registrarErro("Campo não reconhecido no MRU: " + nome + ".");
-        }
     }
 
     for (const nome of grandezas) {
@@ -90,7 +75,6 @@ function resolverMRU(dados = {}) {
         registrarErro("O tempo não pode ser negativo.");
     }
 
-    // Uma entrada inválida não deve ser substituída por um valor padrão.
     if (!resultado.sucesso) {
         atualizarDesconhecidos();
         return resultado;
@@ -99,28 +83,23 @@ function resolverMRU(dados = {}) {
     if (valores.x0 === undefined) {
         valores.x0 = 0;
         resultado.assumidos.x0 = 0;
-        resultado.mensagens.push("Posição inicial não informada: adotado x0 = 0 m.");
     }
 
+    let houveCalculo;
+
     function calcular(nome, valor) {
-        if (!Number.isFinite(valor)) {
-            registrarErro("O cálculo de " + nome + " excedeu o limite numérico.");
-            return;
-        }
-        if (nome === "t" && valor < 0) {
-            registrarErro("Os dados exigem um tempo negativo e são incompatíveis com t >= 0.");
+        if (!Number.isFinite(valor) || (nome === "t" && valor < 0)) {
+            registrarErro("Resultado inválido: verifique os dados e use tempo não negativo.");
             return;
         }
         valores[nome] = valor;
         resultado.calculados[nome] = valor;
+        houveCalculo = true;
     }
 
-    // Cada passagem pode descobrir dados utilizados pela próxima equação.
-    let quantidadeAnterior;
     do {
-        quantidadeAnterior = Object.keys(valores).length;
+        houveCalculo = false;
 
-        // Relação entre posições e deslocamento: Δx = x - x0.
         if (valores.x !== undefined && valores.deslocamento === undefined) {
             calcular("deslocamento", valores.x - valores.x0);
         }
@@ -128,7 +107,6 @@ function resolverMRU(dados = {}) {
             calcular("x", valores.x0 + valores.deslocamento);
         }
 
-        // Δx = v*t. O teste de zero é exato para não descartar valores pequenos.
         if (valores.deslocamento === undefined && valores.v !== undefined && valores.t !== undefined) {
             calcular("deslocamento", valores.v * valores.t);
         }
@@ -139,50 +117,45 @@ function resolverMRU(dados = {}) {
             calcular("t", valores.deslocamento / valores.v);
         }
 
-        // Em repouso ou no instante inicial, o deslocamento é necessariamente zero.
         if (valores.deslocamento === undefined && (valores.v === 0 || valores.t === 0)) {
             calcular("deslocamento", 0);
         }
-    } while (resultado.sucesso && Object.keys(valores).length > quantidadeAnterior);
-
-    // Conferir as relações também quando todos os valores vieram do usuário.
-    function conferir(observado, esperado, equacao) {
-        if (!Number.isFinite(esperado)) {
-            registrarErro("A verificação de " + equacao + " excedeu o limite numérico.");
-        } else if (!numerosProximosMRU(observado, esperado)) {
-            registrarErro("Dados contraditórios: não satisfazem " + equacao + ".");
-        }
-    }
+    } while (resultado.sucesso && houveCalculo);
 
     if (valores.x !== undefined && valores.deslocamento !== undefined) {
-        conferir(valores.deslocamento, valores.x - valores.x0, "deslocamento = x - x0");
+        if (!numerosProximosMRU(valores.deslocamento, valores.x - valores.x0)) {
+            registrarErro("Dados contraditórios: verifique as posições e o deslocamento.");
+        }
     }
-    if (valores.deslocamento !== undefined && valores.v !== undefined && valores.t !== undefined) {
-        conferir(valores.deslocamento, valores.v * valores.t, "deslocamento = v * t");
-    }
-    // Mesmo sem conhecer a outra variável, um fator nulo exige Δx = 0.
-    if (valores.deslocamento !== undefined && (valores.v === 0 || valores.t === 0)) {
-        conferir(valores.deslocamento, 0, "deslocamento = 0 quando v = 0 ou t = 0");
+    if (valores.deslocamento !== undefined) {
+        if (valores.v === 0 || valores.t === 0) {
+            if (!numerosProximosMRU(valores.deslocamento, 0)) {
+                registrarErro("Dados contraditórios: com velocidade ou tempo zero, o deslocamento deve ser zero.");
+            }
+        } else if (valores.v !== undefined && valores.t !== undefined) {
+            if (!numerosProximosMRU(valores.deslocamento, valores.v * valores.t)) {
+                registrarErro("Dados contraditórios: o deslocamento deve ser igual a v * t.");
+            }
+        }
     }
 
     atualizarDesconhecidos();
     if (!resultado.sucesso) return resultado;
 
     resultado.simulacaoPossivel = valores.v !== undefined;
-    resultado.situacao = resultado.desconhecidos.length === 0 ? "determinado" : "parcial";
-
-    if (resultado.desconhecidos.length > 0) {
-        resultado.mensagens.push("Grandezas indeterminadas: " + resultado.desconhecidos.join(", ") + ".");
+    if (resultado.desconhecidos.length === 0) {
+        resultado.situacao = "determinado";
     }
+
     if (valores.v === 0 && valores.t === undefined) {
         resultado.mensagens.push("Em repouso, qualquer tempo não negativo mantém a mesma posição; não há um tempo único.");
     }
     if (valores.t === 0 && valores.v === undefined) {
         resultado.mensagens.push("No instante inicial, o deslocamento zero não determina a velocidade.");
     }
-    resultado.mensagens.push(resultado.simulacaoPossivel
-        ? "Movimento definido: é possível consultar o estado em qualquer tempo não negativo."
-        : "Dados insuficientes para determinar a trajetória: falta conhecer a velocidade.");
+    if (!resultado.simulacaoPossivel) {
+        resultado.mensagens.push("Dados insuficientes para simular: falta determinar a velocidade.");
+    }
 
     return resultado;
 }
@@ -200,13 +173,16 @@ function estadoMRU(resultado, tempo) {
         return estado;
     }
 
-    const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
-    if (!Number.isFinite(valores.x0) || !Number.isFinite(valores.v)) {
-        estado.mensagens.push("O resultado não contém posição inicial e velocidade válidas.");
-        return estado;
+    let posicaoInicial = resultado.fornecidos.x0;
+    if (posicaoInicial === undefined) {
+        posicaoInicial = resultado.assumidos.x0;
+    }
+    let velocidade = resultado.fornecidos.v;
+    if (velocidade === undefined) {
+        velocidade = resultado.calculados.v;
     }
 
-    const posicao = valores.x0 + valores.v * entrada.valor;
+    const posicao = posicaoInicial + velocidade * entrada.valor;
     if (!Number.isFinite(posicao)) {
         estado.mensagens.push("O cálculo da posição excedeu o limite numérico.");
         return estado;
@@ -215,7 +191,7 @@ function estadoMRU(resultado, tempo) {
     estado.sucesso = true;
     estado.t = entrada.valor;
     estado.x = posicao;
-    estado.v = valores.v;
+    estado.v = velocidade;
     estado.a = 0;
     return estado;
 }
