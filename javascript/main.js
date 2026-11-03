@@ -139,11 +139,11 @@ function iniciar() {
         tempo = 0;
         const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
         if (atual === simulacoes.queda_livre && valores.tempoImpacto >= 0) duracao = Math.min(duracao, valores.tempoImpacto);
-        const a = estado(0), b = estado(duracao);
+        const a = estado(0);
         if (!a.sucesso) return exibir({ mensagens: a.mensagens });
         limites = atual === simulacoes.queda_livre
-            ? { inicio: a.y, fim: b.sucesso ? b.y : a.y, solo: valores.solo }
-            : { inicio: a.x, fim: b.sucesso ? b.x : a.x };
+            ? { inicio: a.y, solo: valores.solo }
+            : { inicio: a.x };
         desenhar(0);
     }
     if (tempo >= duracao) return;
