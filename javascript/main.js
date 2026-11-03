@@ -1,20 +1,41 @@
 const simulacoes = {
-    mru: ["MRU", "x = x₀ + v·t", ["x0", "x", "v", "deslocamento", "t"], resolverMRU, estadoMRU],
-    mruv: ["MRUV", "x = x₀ + v₀·t + a·t²/2", ["x0", "x", "v0", "v", "a", "deslocamento", "t"], resolverMRUV, estadoMRUV],
-    queda_livre: ["Queda livre", "y = y₀ + v₀·t − g·t²/2", ["y0", "y", "v0", "v", "g", "deslocamento", "t", "solo", "alturaInicial"], resolverQuedaLivre, estadoQuedaLivre],
-    forca: ["Segunda Lei de Newton", "F = m·a", ["m", "F", "a", "x0", "v0"], resolverNewton, estadoNewton],
-    atrito: ["Atrito", "Fres = F − Fat; a = Fres/m", ["m", "F", "mue", "muc", "g", "v0", "x0"], resolverAtrito, estadoAtrito],
-    trabalho: ["Trabalho", "W = F·Δx·cos(θ)", ["F", "deslocamento", "angulo"], resolverTrabalho, estadoTrabalho]
+    mru: {
+        titulo: "MRU", formula: "x = x₀ + v·t", campos: ["x0", "v"], obrigatorios: ["v"],
+        resolver: resolverMRU, estado: estadoMRU
+    },
+    mruv: {
+        titulo: "MRUV", formula: "x = x₀ + v₀·t + a·t²/2", campos: ["x0", "v0", "a"], obrigatorios: ["v0", "a"],
+        resolver: resolverMRUV, estado: estadoMRUV
+    },
+    queda_livre: {
+        titulo: "Queda livre", formula: "y = y₀ + v₀·t − g·t²/2",
+        campos: ["y0", "v0", "g", "solo"], obrigatorios: ["v0"],
+        resolver: resolverQuedaLivre, estado: estadoQuedaLivre
+    },
+    forca: {
+        titulo: "Segunda Lei de Newton", formula: "F = m·a", campos: ["m", "F"], obrigatorios: ["m", "F"],
+        resolver: resolverNewton, estado: estadoNewton
+    },
+    atrito: {
+        titulo: "Atrito", formula: "Fres = F − Fat; a = Fres/m",
+        campos: ["m", "F", "mue", "muc", "g", "v0"], obrigatorios: ["m", "F", "mue", "muc"],
+        resolver: resolverAtrito, estado: estadoAtrito
+    },
+    trabalho: {
+        titulo: "Trabalho", formula: "W = F·Δx·cos(θ)", campos: ["F", "deslocamento", "angulo"],
+        obrigatorios: ["F", "deslocamento"], resolver: resolverTrabalho, estado: estadoTrabalho
+    }
 };
 const rotulos = {
-    x0: "Posição inicial x₀ (m)", x: "Posição final x (m)", y0: "Altura inicial y₀ (m)",
-    y: "Altura final y (m)", v0: "Velocidade inicial v₀ (m/s)", v: "Velocidade final v (m/s)",
-    a: "Aceleração a (m/s²)", deslocamento: "Deslocamento Δx (m)", t: "Tempo t (s)",
+    x0: "Posição inicial x₀ (m)", y0: "Altura inicial y₀ (m)",
+    v0: "Velocidade inicial v₀ (m/s)", v: "Velocidade v (m/s)",
+    a: "Aceleração a (m/s²)", deslocamento: "Deslocamento Δx (m)",
     m: "Massa m (kg)", F: "Força F (N)", g: "Gravidade g (m/s²)",
-    solo: "Posição do solo (m)", alturaInicial: "Altura acima do solo (m)",
+    solo: "Posição do solo (m)",
     mue: "Atrito estático μₑ", muc: "Atrito cinético μ꜀", angulo: "Ângulo (graus)"
 };
-let atual, resultado, quadro, inicio, tempo = 0, duracao = 5, limites;
+const duracaoPadrao = 5;
+let atual, resultado, quadro, inicio, tempo = 0, duracao = duracaoPadrao, limites;
 const porId = id => document.getElementById(id);
 const mostrar = pagina => ["inicio", "opcoes-cinematica", "opcoes-dinamica", "simulacao"]
     .forEach(id => porId(id).hidden = id !== pagina);
@@ -24,23 +45,23 @@ function abrir(id) {
     if (!atual) return;
     parar();
     resultado = null;
-    porId("titulo-simulacao").textContent = atual[0];
-    porId("formula").textContent = atual[1];
+    tempo = 0;
+    duracao = duracaoPadrao;
+    limites = null;
+    porId("titulo-simulacao").textContent = atual.titulo;
+    porId("formula").textContent = atual.formula;
     porId("resultados").textContent = "";
     porId("parametros").replaceChildren();
-    atual[2].concat("duracao-simulacao").forEach(nome => {
+    atual.campos.forEach(nome => {
         const label = document.createElement("label");
-        label.textContent = nome === "duracao-simulacao" ? "Duração da animação (s)" : rotulos[nome];
+        label.textContent = rotulos[nome] + (atual.obrigatorios.includes(nome) ? " (obrigatório)" : " (opcional)");
         const input = document.createElement("input");
         input.type = "number";
         input.step = "any";
-        input.id = nome === "duracao-simulacao" ? nome : "parametro-" + nome;
+        input.id = "parametro-" + nome;
         input.dataset.campo = nome;
-        if (nome === "duracao-simulacao") {
-            input.min = "0.1";
-            input.max = "60";
-            input.value = "5";
-        }
+        input.required = atual.obrigatorios.includes(nome);
+        input.addEventListener("input", invalidar);
         label.append(input);
         porId("parametros").append(label);
     });
@@ -50,12 +71,20 @@ function abrir(id) {
 
 function lerCampos() {
     const campos = {};
-    document.querySelectorAll("[data-campo]").forEach(input => {
-        if (input.dataset.campo !== "duracao-simulacao") campos[input.dataset.campo] = input.value;
+    porId("parametros").querySelectorAll("[data-campo]").forEach(input => {
+        campos[input.dataset.campo] = input.value;
     });
-    duracao = Number(porId("duracao-simulacao").value);
-    return Number.isFinite(duracao) && duracao > 0 && duracao <= 60
-        ? campos : null;
+    return campos;
+}
+
+function invalidar() {
+    parar();
+    resultado = null;
+    tempo = 0;
+    duracao = duracaoPadrao;
+    limites = null;
+    exibir({ mensagens: ["Parâmetros alterados. Inicie novamente para aplicar os novos valores."] });
+    limparCanvas("Parâmetros alterados. Inicie novamente para aplicar os novos valores.");
 }
 
 function exibir(dados) {
@@ -72,7 +101,7 @@ function exibir(dados) {
 }
 
 function estado(t) {
-    return atual[4](resultado, t, duracao);
+    return atual.estado(resultado, t, duracao);
 }
 
 function desenhar(t) {
@@ -81,7 +110,7 @@ function desenhar(t) {
         exibir({ mensagens: s.mensagens || ["Não foi possível calcular o movimento."] });
         return false;
     }
-    desenharMovimentoCanvas(s, atual === simulacoes.queda_livre ? "QUEDA_LIVRE" : atual[0], limites);
+    desenharMovimentoCanvas(s, atual === simulacoes.queda_livre ? "QUEDA_LIVRE" : atual.titulo, limites);
     return true;
 }
 
@@ -100,9 +129,11 @@ function parar() {
 function iniciar() {
     if (quadro !== null) return;
     if (!resultado || !resultado.sucesso || !resultado.simulacaoPossivel || tempo >= duracao) {
+        const obrigatorioVazio = porId("parametros").querySelector("input:required:invalid");
+        if (obrigatorioVazio) return obrigatorioVazio.reportValidity();
         const campos = lerCampos();
-        if (!campos) return exibir({ mensagens: ["A duração deve ser maior que zero e no máximo 60 segundos."] });
-        resultado = atual[3](campos);
+        duracao = duracaoPadrao;
+        resultado = atual.resolver(campos);
         exibir(resultado);
         if (!resultado.sucesso || !resultado.simulacaoPossivel) return;
         tempo = 0;
