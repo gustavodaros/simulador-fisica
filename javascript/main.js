@@ -65,6 +65,17 @@ function abrir(id) {
         label.append(input);
         porId("parametros").append(label);
     });
+    const label = document.createElement("label");
+    label.textContent = "Tempo em segundos (opcional)";
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = "any";
+    input.id = "duracao";
+
+    label.append(input);
+    porId("parametros").append(label);
+    
     limparCanvas();
     mostrar("simulacao");
 }
@@ -171,8 +182,21 @@ function iniciar() {
         const obrigatorioVazio = porId("parametros").querySelector("input:required:invalid");
         if (obrigatorioVazio) return obrigatorioVazio.reportValidity();
         const campos = lerCampos();
+
+        const valorDuracao = porId("duracao").value;
+
+        if (valorDuracao === "") {
         duracao = duracaoPadrao;
-        resultado = atual.resolver(campos);
+        } else {
+        duracao = Number(valorDuracao);
+        }
+
+        if (!Number.isFinite(duracao) || duracao <= 0) {
+        alert("Digite um tempo válido em segundos.");
+        return;
+}
+
+resultado = atual.resolver(campos);
         exibir(resultado);
         if (!resultado.sucesso || !resultado.simulacaoPossivel) return;
         tempo = 0;
