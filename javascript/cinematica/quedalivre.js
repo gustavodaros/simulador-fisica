@@ -1,14 +1,3 @@
-function coordenadasVerticais(valores) {
-    const verticais = {};
-    for (const nome of Object.keys(valores)) {
-        let destino = nome;
-        if (nome === "x0") destino = "y0";
-        if (nome === "x") destino = "y";
-        verticais[destino] = valores[nome];
-    }
-    return verticais;
-}
-
 function eventosQuedaLivre(valores) {
     const eventos = {};
     if (valores.v0 === undefined) return { valores: eventos };
@@ -38,111 +27,58 @@ function eventosQuedaLivre(valores) {
 }
 
 function resolverQuedaLivre(dados = {}) {
-    const adicionais = ["solo", "alturaInicial", "yMaximo", "alturaMaxima", "tempoAlturaMaxima", "tempoImpacto", "velocidadeImpacto"];
     const objetoValido = dados !== null && typeof dados === "object" && !Array.isArray(dados);
     const entrada = objetoValido ? dados : {};
     const gravidade = lerNumeroMRUV(entrada.g);
     const g = gravidade.ausente ? 9.81 : gravidade.valor;
-    const resultado = resolverMRUV(objetoValido ? {
-        x0: entrada.y0, x: entrada.y, v0: entrada.v0, v: entrada.v,
-        a: -g, deslocamento: entrada.deslocamento, t: entrada.t
-    } : dados);
+    const resultado = resolverMRUV(objetoValido ? { x0: entrada.y0, v0: entrada.v0, a: -g } : dados);
     resultado.movimento = "QUEDA_LIVRE";
-    for (const tipo of ["fornecidos", "assumidos", "calculados"]) {
-        resultado[tipo] = coordenadasVerticais(resultado[tipo]);
+    if (resultado.fornecidos.x0 !== undefined) {
+        resultado.fornecidos.y0 = resultado.fornecidos.x0;
+        delete resultado.fornecidos.x0;
     }
-    const desconhecidosMRUV = resultado.desconhecidos.map(function (nome) {
-        if (nome === "x0") return "y0";
-        if (nome === "x") return "y";
-        return nome;
-    });
-    if (resultado.sucesso) resultado.calculados.a = resultado.fornecidos.a;
+    if (resultado.assumidos.x0 !== undefined) {
+        resultado.assumidos.y0 = resultado.assumidos.x0;
+        delete resultado.assumidos.x0;
+    }
+    if (resultado.sucesso) resultado.calculados.a = -g;
     delete resultado.fornecidos.a;
+    resultado.desconhecidos = ["y", "v", "deslocamento", "t"];
 
-    function finalizar() {
-        const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
-        resultado.desconhecidos = desconhecidosMRUV.concat(adicionais.filter(function (nome) {
-            return valores[nome] === undefined;
-        }));
-        return resultado;
-    }
     function falhar(mensagem) {
         resultado.sucesso = false;
         resultado.situacao = "erro";
         resultado.simulacaoPossivel = false;
         resultado.calculados = {};
-        resultado.solucoes = [];
         resultado.mensagens = [mensagem];
-        return finalizar();
+        return resultado;
     }
-    if (!objetoValido) return finalizar();
+    if (!objetoValido) return resultado;
     if (gravidade.erro || g <= 0) return falhar("A gravidade deve ser um número positivo.");
     if (gravidade.ausente) resultado.assumidos.g = g;
     else resultado.fornecidos.g = g;
-
-    for (const nome of ["solo", "alturaInicial"]) {
-        const numero = lerNumeroMRUV(entrada[nome]);
-        if (numero.erro) return falhar("O campo " + nome + " deve conter um número válido.");
-        if (!numero.ausente) resultado.fornecidos[nome] = numero.valor;
-    }
-    if (!resultado.sucesso) return finalizar();
+    const solo = lerNumeroMRUV(entrada.solo);
+    if (solo.erro) return falhar("A posição do solo deve conter um número válido.");
+    if (!solo.ausente) resultado.fornecidos.solo = solo.valor;
+    if (!resultado.sucesso) return resultado;
 
     const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
-    if (valores.alturaInicial !== undefined && valores.alturaInicial < 0) {
-        return falhar("A altura inicial acima do solo não pode ser negativa.");
-    }
-    if (valores.alturaInicial !== undefined && valores.solo === undefined) {
-        valores.solo = valores.y0 - valores.alturaInicial;
-        resultado.calculados.solo = valores.solo;
-    }
-    if (valores.solo !== undefined) {
-        const altura = valores.y0 - valores.solo;
+    if (!solo.ausente) {
+        const altura = valores.y0 - solo.valor;
         if (!Number.isFinite(altura) || altura < 0) return falhar("A posição inicial está abaixo do solo informado.");
-        if (valores.alturaInicial !== undefined && !numerosProximosMRUV(altura, valores.alturaInicial)) {
-            return falhar("Dados contraditórios: alturaInicial deve ser igual a y0 - solo.");
-        }
-        if (valores.alturaInicial === undefined) {
-            valores.alturaInicial = altura;
-            resultado.calculados.alturaInicial = altura;
-        }
+        resultado.calculados.alturaInicial = altura;
     }
-
-    resultado.solucoes = resultado.solucoes.map(function (solucao) {
-        const vertical = coordenadasVerticais(solucao);
-        delete vertical.a;
-        vertical.g = g;
-        if (valores.solo !== undefined) vertical.solo = valores.solo;
-        return vertical;
-    });
-    const alternativas = resultado.solucoes.length > 0 ? resultado.solucoes : [valores];
-    const eventos = [];
-    for (const alternativa of alternativas) {
-        const analise = eventosQuedaLivre(alternativa);
-        if (analise.erro) return falhar(analise.erro);
-        eventos.push(analise.valores);
+    const eventos = eventosQuedaLivre(valores);
+    if (eventos.erro) return falhar(eventos.erro);
+    Object.assign(resultado.calculados, eventos.valores);
+    for (const nome of ["solo", "alturaInicial", "yMaximo", "alturaMaxima", "tempoAlturaMaxima", "tempoImpacto", "velocidadeImpacto"]) {
+        if (resultado.fornecidos[nome] === undefined && resultado.calculados[nome] === undefined) resultado.desconhecidos.push(nome);
     }
-    for (const nome of Object.keys(eventos[0])) {
-        const comum = eventos.every(function (evento) {
-            return evento[nome] !== undefined && numerosProximosMRUV(evento[nome], eventos[0][nome]);
-        });
-        if (comum) resultado.calculados[nome] = eventos[0][nome];
-    }
-    if (valores.solo === undefined) {
-        resultado.mensagens.push("Solo desconhecido: não é possível determinar impacto nem altura acima do chão. yMaximo é uma coordenada vertical.");
-    }
-    const impacto = resultado.calculados.tempoImpacto;
-    if (valores.t !== undefined && impacto !== undefined && valores.t > impacto && !numerosProximosMRUV(valores.t, impacto)) {
-        resultado.mensagens.push("O tempo informado é posterior ao impacto. Os resultados nesse instante são apenas a continuação matemática das equações.");
-    }
-    return finalizar();
+    return resultado;
 }
 
 function estadoQuedaLivre(resultado, tempo) {
     const estado = { movimento: "QUEDA_LIVRE", sucesso: false, mensagens: [] };
-    if (typeof estadoMRUV !== "function") {
-        estado.mensagens.push("Carregue mruv.js antes de utilizar o movimento vertical.");
-        return estado;
-    }
     if (!resultado || resultado.movimento !== "QUEDA_LIVRE" || resultado.sucesso !== true || resultado.simulacaoPossivel !== true) {
         estado.mensagens.push("Resolva um movimento vertical com trajetória única antes de consultar seu estado.");
         return estado;
