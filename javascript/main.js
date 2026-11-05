@@ -13,12 +13,12 @@ const simulacoes = {
         resolver: resolverQuedaLivre, estado: estadoQuedaLivre
     },
     forca: {
-        titulo: "Segunda Lei de Newton", formula: "F = m·a", campos: ["m", "F"], obrigatorios: ["m", "F"],
+        titulo: "Segunda Lei de Newton", formula: "F = m·a", campos: ["m", "F", "x0", "v0"], obrigatorios: ["m", "F"],
         resolver: resolverNewton, estado: estadoNewton
     },
     atrito: {
         titulo: "Atrito", formula: "Fres = F − Fat; a = Fres/m",
-        campos: ["m", "F", "mue", "muc", "g", "v0"], obrigatorios: ["m", "F", "mue", "muc"],
+        campos: ["m", "F", "mue", "muc", "g", "v0", "x0"], obrigatorios: ["m", "F", "mue", "muc"],
         resolver: resolverAtrito, estado: estadoAtrito
     },
     trabalho: {
@@ -87,17 +87,37 @@ function invalidar() {
     limparCanvas("Parâmetros alterados. Inicie novamente para aplicar os novos valores.");
 }
 
+const nomes = {
+    x0: ["Posição inicial x₀", "m"], y0: ["Altura inicial y₀", "m"], x: ["Posição x", "m"], y: ["Posição y", "m"],
+    v0: ["Velocidade inicial v₀", "m/s"], v: ["Velocidade v", "m/s"], a: ["Aceleração a", "m/s²"],
+    t: ["Tempo t", "s"], deslocamento: ["Deslocamento Δx", "m"], m: ["Massa m", "kg"], F: ["Força F", "N"],
+    g: ["Gravidade g", "m/s²"], solo: ["Posição do solo", "m"], mue: ["Atrito estático μₑ", ""],
+    muc: ["Atrito cinético μ꜀", ""], angulo: ["Ângulo θ", "°"], N: ["Normal N", "N"],
+    fatMax: ["Atrito estático máximo", "N"], Fat: ["Atrito Fat", "N"], Fres: ["Força resultante", "N"],
+    tempoParada: ["Tempo até parar", "s"], distanciaParada: ["Distância até parar", "m"],
+    trabalho: ["Trabalho W", "J"], alturaInicial: ["Altura inicial", "m"], yMaximo: ["y máximo", "m"],
+    alturaMaxima: ["Altura máxima", "m"], tempoAlturaMaxima: ["Tempo até a altura máxima", "s"],
+    tempoImpacto: ["Tempo até o impacto", "s"], velocidadeImpacto: ["Velocidade no impacto", "m/s"]
+};
+
+function formatar(nome, valor) {
+    const [rotulo, unidade] = nomes[nome] || [nome, ""];
+    return rotulo + " = " + Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 4 }) + (unidade ? " " + unidade : "");
+}
+
 function exibir(dados) {
-    const linhas = [];
-    ["fornecidos", "assumidos", "calculados"].forEach(tipo => {
-        if (dados[tipo] && Object.keys(dados[tipo]).length) {
-            linhas.push(tipo + ": " + Object.entries(dados[tipo])
-                .map(([k, v]) => k + " = " + Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 4 })).join("; "));
-        }
+    const itens = [...(dados.mensagens || [])];
+    ["calculados", "fornecidos", "assumidos"].forEach(tipo => {
+        Object.entries(dados[tipo] || {}).forEach(([nome, valor]) => itens.push(formatar(nome, valor)));
     });
-    if (dados.desconhecidos && dados.desconhecidos.length) linhas.push("Indeterminados: " + dados.desconhecidos.join(", "));
-    porId("resultados").textContent = linhas.concat(dados.mensagens || []).join("\n");
-    porId("resultados").style.whiteSpace = "pre-line";
+    if (dados.desconhecidos && dados.desconhecidos.length) itens.push("Indeterminados: " + dados.desconhecidos.join(", "));
+    const lista = document.createElement("ul");
+    itens.forEach(texto => {
+        const li = document.createElement("li");
+        li.textContent = texto;
+        lista.append(li);
+    });
+    porId("resultados").replaceChildren(lista);
 }
 
 function estado(t) {
@@ -112,6 +132,25 @@ function desenhar(t) {
     }
     desenharMovimentoCanvas(s, atual === simulacoes.queda_livre ? "QUEDA_LIVRE" : atual.titulo, limites);
     return true;
+}
+
+function ajustarEscala(inicio) {
+    const largura = porId("tela").width;
+    let menor = 0, maior = 0, forcaMax = 0;
+    for (let i = 0; i <= 200; i++) {
+        const s = estado(duracao * i / 200);
+        if (!s.sucesso) continue;
+        if (Number.isFinite(s.x)) {
+            menor = Math.min(menor, s.x - inicio);
+            maior = Math.max(maior, s.x - inicio);
+        }
+        if (Number.isFinite(s.F)) forcaMax = Math.max(forcaMax, Math.abs(s.F));
+        if (Number.isFinite(s.Fat)) forcaMax = Math.max(forcaMax, Math.abs(s.Fat));
+    }
+    const percurso = maior - menor;
+    const escala = percurso > 0 ? Math.min(100, largura * 0.8 / percurso) : 10;
+    const origem = percurso > 0 ? largura * 0.1 - menor * escala : largura / 2;
+    return { escala: escala, origem: origem, forcaMax: forcaMax };
 }
 
 function animar(ms) {
@@ -143,7 +182,7 @@ function iniciar() {
         if (!a.sucesso) return exibir({ mensagens: a.mensagens });
         limites = atual === simulacoes.queda_livre
             ? { inicio: a.y, solo: valores.solo }
-            : { inicio: a.x };
+            : Object.assign({ inicio: a.x }, ajustarEscala(a.x));
         desenhar(0);
     }
     if (tempo >= duracao) return;

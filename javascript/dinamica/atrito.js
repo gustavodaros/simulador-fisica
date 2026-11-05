@@ -40,7 +40,7 @@ function resolverAtrito(dados = {}){
 
     function calcular(nome, valor){
         if (!Number.isFinite(valor)){
-            falhar("O cálculo de " + nome + "excedeu o limite numérico.");
+            falhar("O cálculo de " + nome + " excedeu o limite numérico.");
             return;
         }
         resultado.calculados[nome] = valor;
@@ -179,6 +179,6 @@ function estadoAtrito(resultado, tempo) {
  
     return {
         movimento: "ATRITO", sucesso: true, t: t, x: x, v: v, a: a,
-        Fat: fat, Fres: fres, regime: regime, mensagens: []
+        F: valores.F, Fat: fat, Fres: fres, regime: regime, mensagens: []
     };
 }
