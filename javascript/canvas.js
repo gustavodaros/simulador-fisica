@@ -76,10 +76,10 @@ function desenharMovimentoCanvas(estado, movimento, limites = {}) {
     c.fillText((vertical ? "y" : "x") + " = " + pos.toFixed(2) + " m", 16, 22);
     if (foraDaTela) c.fillText("Fora da área visível", w / 2 - 60, 22);
     c.fillText("t = " + estado.t.toFixed(2) + " s", w - 105, 22);
-    if (Number.isFinite(estado.v)) c.fillText("v = " + estado.v.toFixed(2) + " m/s", 16, h - 10);
-    if (Number.isFinite(estado.a)) c.fillText("a = " + estado.a.toFixed(2) + " m/s²", w - 140, h - 10);
+    if (estado.movimento !== "TRABALHO" && Number.isFinite(estado.v)) c.fillText("v = " + estado.v.toFixed(2) + " m/s", 16, h - 10);
+    if (estado.movimento !== "TRABALHO" && Number.isFinite(estado.a)) c.fillText("a = " + estado.a.toFixed(2) + " m/s²", w - 140, h - 10);
     c.textAlign = "center";
-    if (Number.isFinite(estado.W)) c.fillText("W = " + estado.W.toFixed(2) + " J", w / 2, h - 10);
+    if (Number.isFinite(estado.W)) c.fillText("W acumulado = " + estado.W.toFixed(2) + " J", w / 2, h - 10);
     if (estado.regime) c.fillText("regime: " + estado.regime, w / 2, h - 10);
     c.textAlign = "start";
 }

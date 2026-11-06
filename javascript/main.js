@@ -27,7 +27,7 @@ const simulacoes = {
     }
 };
 const rotulos = {
-    x0: "Posição inicial x₀ (m)", y0: "Altura inicial y₀ (m)",
+    x0: "Posição inicial x₀ (m)", y0: "Posição vertical inicial y₀ (m)",
     v0: "Velocidade inicial v₀ (m/s)", v: "Velocidade v (m/s)",
     a: "Aceleração a (m/s²)", deslocamento: "Deslocamento Δx (m)",
     m: "Massa m (kg)", F: "Força F (N)", g: "Gravidade g (m/s²)",
@@ -72,6 +72,7 @@ function abrir(id) {
     input.type = "number";
     input.step = "any";
     input.id = "duracao";
+    input.addEventListener("input", invalidar);
 
     label.append(input);
     porId("parametros").append(label);
@@ -99,29 +100,37 @@ function invalidar() {
 }
 
 const nomes = {
-    x0: ["Posição inicial x₀", "m"], y0: ["Altura inicial y₀", "m"], x: ["Posição x", "m"], y: ["Posição y", "m"],
+    x0: ["Posição inicial x₀", "m"], y0: ["Posição vertical inicial y₀", "m"], x: ["Posição x", "m"], y: ["Posição y", "m"],
     v0: ["Velocidade inicial v₀", "m/s"], v: ["Velocidade v", "m/s"], a: ["Aceleração a", "m/s²"],
     t: ["Tempo t", "s"], deslocamento: ["Deslocamento Δx", "m"], m: ["Massa m", "kg"], F: ["Força F", "N"],
     g: ["Gravidade g", "m/s²"], solo: ["Posição do solo", "m"], mue: ["Atrito estático μₑ", ""],
     muc: ["Atrito cinético μ꜀", ""], angulo: ["Ângulo θ", "°"], N: ["Normal N", "N"],
     fatMax: ["Atrito estático máximo", "N"], Fat: ["Atrito Fat", "N"], Fres: ["Força resultante", "N"],
     tempoParada: ["Tempo até parar", "s"], distanciaParada: ["Distância até parar", "m"],
-    trabalho: ["Trabalho W", "J"], alturaInicial: ["Altura inicial", "m"], yMaximo: ["y máximo", "m"],
-    alturaMaxima: ["Altura máxima", "m"], tempoAlturaMaxima: ["Tempo até a altura máxima", "s"],
+    trabalho: ["Trabalho W", "J"], alturaInicial: ["Altura inicial", "m"], yMaximo: ["Posição vertical máxima", "m"],
+    alturaMaxima: ["Altura máxima acima do solo", "m"], tempoAlturaMaxima: ["Tempo até a altura máxima", "s"],
+    tempoFinal: ["Tempo considerado (final da simulação)", "s"],
+    xFinal: ["Posição final", "m"], yFinal: ["Posição vertical final", "m"],
+    vFinal: ["Velocidade final", "m/s"], vConstante: ["Velocidade constante", "m/s"],
+    deslocamentoVertical: ["Deslocamento vertical Δy", "m"],
+    forcaResultante: ["Força resultante", "N"], forcaAplicada: ["Força aplicada", "N"],
+    tempoAtual: ["Tempo atual", "s"], trabalhoTotal: ["Trabalho total", "J"],
     tempoImpacto: ["Tempo até o impacto", "s"], velocidadeImpacto: ["Velocidade no impacto", "m/s"]
 };
 
 function formatar(nome, valor) {
+    if (Math.abs(valor) < 0.00005) valor = 0;
     const [rotulo, unidade] = nomes[nome] || [nome, ""];
     return rotulo + " = " + Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 4 }) + (unidade ? " " + unidade : "");
 }
 
 function exibir(dados) {
     const itens = [...(dados.mensagens || [])];
-    ["calculados", "fornecidos", "assumidos"].forEach(tipo => {
-        Object.entries(dados[tipo] || {}).forEach(([nome, valor]) => itens.push(formatar(nome, valor)));
+    ["fornecidos", "calculados"].forEach(tipo => {
+        const valores = Object.entries(dados[tipo] || {}).filter(([, valor]) => Number.isFinite(valor));
+        if (valores.length) itens.push(tipo === "fornecidos" ? "Dados" : "Resultados");
+        valores.forEach(([nome, valor]) => itens.push(formatar(nome, valor)));
     });
-    if (dados.desconhecidos && dados.desconhecidos.length) itens.push("Indeterminados: " + dados.desconhecidos.join(", "));
     const lista = document.createElement("ul");
     itens.forEach(texto => {
         const li = document.createElement("li");
@@ -129,6 +138,34 @@ function exibir(dados) {
         lista.append(li);
     });
     porId("resultados").replaceChildren(lista);
+}
+
+function exibirResultados(consulta) {
+    const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
+    let dados, calculados;
+    if (atual === simulacoes.forca) {
+        dados = { m: valores.m, forcaResultante: valores.F };
+        calculados = { a: valores.a };
+    } else if (atual === simulacoes.trabalho) {
+        dados = { F: valores.F, deslocamento: valores.deslocamento, angulo: valores.angulo };
+        calculados = { trabalhoTotal: valores.trabalho };
+    } else if (atual === simulacoes.atrito) {
+        dados = { m: valores.m, forcaAplicada: valores.F, mue: valores.mue, muc: valores.muc, g: valores.g };
+        calculados = { tempoAtual: consulta.t, N: valores.N, fatMax: valores.fatMax,
+            Fat: consulta.Fat, Fres: consulta.Fres, a: consulta.a };
+    } else if (atual === simulacoes.queda_livre) {
+        dados = { y0: valores.y0, v0: valores.v0, g: valores.g, solo: valores.solo };
+        calculados = { tempoFinal: duracao, yFinal: consulta.y, vFinal: consulta.v,
+            deslocamentoVertical: consulta.y - valores.y0,
+            yMaximo: valores.yMaximo, alturaMaxima: valores.alturaMaxima,
+            tempoImpacto: valores.tempoImpacto, velocidadeImpacto: valores.velocidadeImpacto };
+    } else {
+        dados = atual === simulacoes.mru ? { x0: valores.x0, vConstante: valores.v }
+            : { x0: valores.x0, v0: valores.v0, a: valores.a };
+        calculados = { tempoFinal: duracao, xFinal: consulta.x, deslocamento: consulta.x - valores.x0 };
+        if (atual === simulacoes.mruv) calculados.vFinal = consulta.v;
+    }
+    exibir({ fornecidos: dados, calculados: calculados });
 }
 
 function estado(t) {
@@ -141,6 +178,7 @@ function desenhar(t) {
         exibir({ mensagens: s.mensagens || ["Não foi possível calcular o movimento."] });
         return false;
     }
+    if (atual === simulacoes.atrito) exibirResultados(s);
     desenharMovimentoCanvas(s, atual === simulacoes.queda_livre ? "QUEDA_LIVRE" : atual.titulo, limites);
     return true;
 }
@@ -197,11 +235,16 @@ function iniciar() {
 }
 
 resultado = atual.resolver(campos);
-        exibir(resultado);
-        if (!resultado.sucesso || !resultado.simulacaoPossivel) return;
+        if (!resultado.sucesso || !resultado.simulacaoPossivel) {
+            exibir({ mensagens: resultado.mensagens.length ? resultado.mensagens : ["Não foi possível calcular o movimento."] });
+            return;
+        }
         tempo = 0;
         const valores = Object.assign({}, resultado.assumidos, resultado.fornecidos, resultado.calculados);
         if (atual === simulacoes.queda_livre && valores.tempoImpacto >= 0) duracao = Math.min(duracao, valores.tempoImpacto);
+        const final = estado(duracao);
+        if (!final.sucesso) return exibir({ mensagens: final.mensagens });
+        exibirResultados(final);
         const a = estado(0);
         if (!a.sucesso) return exibir({ mensagens: a.mensagens });
         limites = atual === simulacoes.queda_livre

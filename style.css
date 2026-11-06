@@ -173,6 +173,7 @@ button:active{
 
 #parametros label{
     display: grid;
+    grid-template-rows: 1fr auto;
     gap: 4px;
     font-size: 0.875rem;
     font-weight: 600;
